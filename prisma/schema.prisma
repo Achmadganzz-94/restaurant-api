@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  ADMIN
+  STAFF
+}
+
+enum MenuCategory {
+  MAKANAN
+  MINUMAN
+  SNACK
+  DESSERT
+  PAKET
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  DELIVERY
+}
+
+enum OrderStatus {
+  PENDING      // Pesanan baru dibuat
+  PREPARING    // Sedang dimasak/disiapkan di dapur
+  READY        // Pesanan selesai dibuat & siap disajikan/diambil
+  SERVED       // Pesanan sudah sampai di meja konsumen
+  COMPLETED    // Pesanan sudah selesai & dibayar
+  CANCELLED    // Pesanan dibatalkan
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  QRIS
+  TRANSFER
+}
+
+// ==========================================
+// MODELS
+// ==========================================
+
+// 1. User & Hak Akses Staf Restoran
+model User {
+  id           String               @id @default(uuid())
+  name         String
+  email        String               @unique
+  passwordHash String
+  role         Role                 @default(STAFF)
+  phone        String?
+  isActive     Boolean              @default(true)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  
+  orders       Order[]
+  payments     Payment[]
+  statusLogs   OrderStatusHistory[]
+}
+
+// 2. Data Pelanggan & Membership
+model Customer {
+  id         String      @id @default(uuid())
+  name       String
+  phone      String      @unique
+  email      String?
+  address    String?
+  points     Int         @default(0) // Poin loyalitas pelanggan
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  membership Membership?
+  orders     Order[]
+}
+
+model Membership {
+  id              String   @id @default(uuid())
+  customerId      String   @unique
+  customer        Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  memberCode      String   @unique
+  discountPercent Float    @default(10)
+  isActive        Boolean  @default(true)
+  joinedAt        DateTime @default(now())
+}
+
+// 3. Manajemen Menu & Katalog Makanan/Minuman
+model MenuItem {
+  id          String       @id @default(uuid())
+  name        String
+  description String?      @db.Text
+  price       Float
+  category    MenuCategory @default(MAKANAN)
+  imageUrl    String?      @db.Text  // Memuat URL Gambar atau String Base64 dari Device
+  isAvailable Boolean      @default(true) // Menandakan Stok Tersedia / Habis
+  stockQty    Int          @default(100)  // Lacak Jumlah Stok Tersedia
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  orderItems  OrderItem[]
+}
+
+// 4. Sistem Pesanan (Orders & Transactions)
+model Order {
+  id             String               @id @default(uuid())
+  orderNumber    String               @unique // Contoh: ORD-20260205-001
+  tableNumber    Int?                 // Kosong jika Takeaway
+  orderType      OrderType            @default(DINE_IN)
+  status         OrderStatus          @default(PENDING)
+  paymentStatus  PaymentStatus        @default(UNPAID)
+  
+  // Perhitungan Keuangan Transaksi POS
+  subtotal       Float                @default(0)
+  tax            Float                @default(0) // PB1 (biasanya 10%)
+  serviceCharge  Float                @default(0) // Service Fee (misal 5%)
+  discount       Float                @default(0)
+  totalPrice     Float                @default(0)
+  note           String?              // Catatan khusus untuk pesanan ini
+
+  // Relasi Staf Kasir & Pelanggan
+  userId         String?
+  user           User?                @relation(fields: [userId], references: [id])
+  customerId     String?
+  customer       Customer?            @relation(fields: [customerId], references: [id])
+  
+  orderItems     OrderItem[]
+  payment        Payment?
+  statusHistory  OrderStatusHistory[]
+  
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+// 5. Item Detail Pesanan
+model OrderItem {
+  id         String   @id @default(uuid())
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity   Int
+  price      Float    // Harga saat dibeli (menghindari masalah jika harga menu naik di masa depan)
+  notes      String?  // Catatan per item (contoh: "Pedas Manis", "Tanpa Es")
+}
+
+// 6. Pembayaran (Payment Settlement)
+model Payment {
+  id           String        @id @default(uuid())
+  orderId      String        @unique
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount       Float
+  payAmount    Float         // Uang tunai/nominal yang dibayarkan konsumen
+  changeAmount Float         @default(0) // Uang kembalian
+  method       PaymentMethod
+  paidAt       DateTime      @default(now())
+  
+  receivedById String
+  receivedBy   User          @relation(fields: [receivedById], references: [id])
+}
+
+// 7. Audit Log / Riwayat Perubahan Status Pesanan
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      OrderStatus
+  changedById String
+  changedBy   User        @relation(fields: [changedById], references: [id])
+  changedAt   DateTime    @default(now())
+  note        String?
+}
