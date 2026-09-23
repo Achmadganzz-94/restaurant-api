@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../utils/prisma";
 import { registerSchema, loginSchema } from "../validations/auth.schema";
-import { string } from "zod";
 
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -92,7 +91,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   } catch (error: any) {
     console.error("DETAILED LOGIN ERROR:", error);
     if (error.name === "ZodError") {
-      res.status(400).json({ message: "Validasi gagal", errors: error.errors });
+      res.status(400).json({ message: "email/password tidak valid", errors: error.errors });
       return;
     }
     res
