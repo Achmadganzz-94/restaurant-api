@@ -1,7 +1,9 @@
 import { Router } from "express";
+
 import {
   getMenus,
   getPopularMenus,
+  getPOSMenus,
   createMenu,
   updateMenu,
   deleteMenu,
@@ -11,6 +13,8 @@ const router = Router();
 
 router.get("/", getMenus);
 router.get("/popular", getPopularMenus);
+router.get("/pos", getPOSMenus);
+
 router.post("/", createMenu);
 router.put("/:id", updateMenu);
 router.delete("/:id", deleteMenu);

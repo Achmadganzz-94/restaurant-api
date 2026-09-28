@@ -1,3 +1,5 @@
+import "dotenv/config";
+
 import express from "express";
 import authRoutes from "./routes/auth.routes";
 import menuRoutes from "./routes/menu.routes";
@@ -10,8 +12,10 @@ import cors from "cors";
 
 const app = express();
 
+// Cek apakah JWT_SECRET terbaca
+console.log("JWT_SECRET TERBACA:", process.env.JWT_SECRET ? "YA" : "TIDAK");
 
-// Konfigurasi CORS lengkap
+// Konfigurasi CORS
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -23,6 +27,7 @@ app.use(
 
 app.use(express.json());
 
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/menu", menuRoutes);
 app.use("/api/orders", orderRoutes);
@@ -31,7 +36,15 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/reports", reportRoute);
 app.use("/api/reports", reportsRoute);
 
+app.get("/api/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Backend berhasil diakses",
+  });
+});
+
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
